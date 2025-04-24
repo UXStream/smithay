@@ -728,7 +728,7 @@ impl X11Wm {
         handle: LoopHandle<'static, D>,
         connection: UnixStream,
         client: wayland_server::Client,
-    ) -> Result<Self, Box<dyn std::error::Error>>
+    ) -> Result<(Self, RegistrationToken), Box<dyn std::error::Error>>
     where
         D: XwmHandler,
         D: xwayland_shell::XWaylandShellHandler,
@@ -908,7 +908,7 @@ impl X11Wm {
         };
 
         let event_handle = handle.clone();
-        handle.insert_source(source, move |event, _, data| match event {
+        let reg_token = handle.insert_source(source, move |event, _, data| match event {
             calloop::channel::Event::Msg(event) => {
                 if let Err(err) = handle_event(&event_handle, data, id, event) {
                     warn!(id = id.0, err = ?err, "Failed to handle X11 event");
@@ -918,7 +918,7 @@ impl X11Wm {
                 data.disconnected(id);
             }
         })?;
-        Ok(wm)
+        Ok((wm, reg_token))
     }
 
     /// Id of this X11 WM
