@@ -209,12 +209,6 @@ where
             data.handle.increment_serial(resource);
         }
 
-        // Discard requsets without any active input method instance.
-        if !data.input_method_handle.has_instance() {
-            debug!("discarding text-input request without IME running");
-            return;
-        }
-
         let focus = match data.handle.focus() {
             Some(focus) if focus.id().same_client_as(&resource.id()) => focus,
             _ => {
@@ -262,11 +256,6 @@ where
                 let mut new_state = mem::take(pending_state);
                 let _ = pending_state;
                 let active_text_input_id = &mut guard.active_text_input_id;
-
-                if active_text_input_id.is_some() && *active_text_input_id != Some(resource.id()) {
-                    debug!("discarding text_input request since we already have an active one");
-                    return;
-                }
 
                 match new_state.enable {
                     Some(true) => {
