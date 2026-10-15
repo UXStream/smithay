@@ -17,6 +17,9 @@ use super::{GrabStatus, Seat, SeatHandler};
 
 mod grab;
 
+#[cfg(all(test, feature = "wayland_frontend"))]
+mod tests;
+
 /// An handle to a touch handler
 ///
 /// It can be cloned and all clones manipulate the same internal state.
@@ -620,12 +623,16 @@ impl<D: SeatHandler + 'static> TouchInternal<D> {
     }
 
     fn cancel(&mut self, data: &mut D, seat: &Seat<D>, seq: Serial) {
-        for state in self.focus.values_mut() {
-            if state.current.map(|c| c >= state.pending).unwrap_or(false) {
-                continue;
+        // Cancellation ends the whole gesture, including contacts whose last event
+        // has already been framed. Drop all slot state so neither active focus nor
+        // a pending up-frame can survive into the next gesture.
+        for (_, state) in self.focus.drain() {
+            if let Some(focus) = state.frame_pending {
+                focus.cancel(seat, data, seq);
             }
-            state.current = Some(seq);
-            if let Some((focus, _)) = state.focus.take() {
+            if let Some((focus, _)) = state.focus {
+                // Share the sequence across slots so targets can deduplicate
+                // cancellation for multiple contacts belonging to one client.
                 focus.cancel(seat, data, seq);
             }
         }
